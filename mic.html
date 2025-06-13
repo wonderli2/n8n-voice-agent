@@ -36,15 +36,20 @@
   <div id="status">▶️ Tap to start live chat</div>
 
   <script type="module">
+    // ** ALERT ON LOAD **
+    alert("⏱️ Script loaded");
+
     import { createChatStream, createAudioStream }
       from 'https://cdn.jsdelivr.net/npm/openai-realtime@0.1.0/dist/index.js';
 
-    // Expose startLiveChat so it can be referenced
+    // Expose our main function
     async function startLiveChat() {
+      alert("🔊 Button clicked");
+
       const btn = document.getElementById('connect');
       const status = document.getElementById('status');
 
-      // 1. Prompt for API key
+      // 1) Prompt for API key
       const apiKey = prompt("Enter your OpenAI API key:");
       if (!apiKey) {
         alert("API key is required.");
@@ -52,9 +57,9 @@
       }
 
       btn.disabled = true;
-      status.textContent = '🎙️ Initializing microphone…';
+      status.textContent = '🎙️ Initializing…';
 
-      // 2. Get microphone permission
+      // 2) Mic permission
       let micStream;
       try {
         micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -64,12 +69,13 @@
         return;
       }
 
-      // 3. Connect to OpenAI Realtime
-      status.textContent = '🔗 Connecting to OpenAI…';
+      // 3) Connect to OpenAI Realtime
+      status.textContent = '🔗 Connecting…';
       let socket;
       try {
         socket = await createChatStream({ apiKey, model: 'gpt-4o-realtime' });
-      } catch {
+      } catch (err) {
+        console.error(err);
         alert("Failed to connect to OpenAI.");
         btn.disabled = false;
         return;
@@ -77,29 +83,29 @@
 
       status.textContent = '🎧 Live—speak now';
 
-      // 4. Play incoming audio immediately
+      // 4) Play incoming audio immediately
       createAudioStream(socket, {
         onAudio: (chunk) => {
           const ctx = new AudioContext();
-          ctx.decodeAudioData(chunk.buffer).then(buffer => {
+          ctx.decodeAudioData(chunk.buffer).then(buf => {
             const src = ctx.createBufferSource();
-            src.buffer = buffer;
+            src.buffer = buf;
             src.connect(ctx.destination);
             src.start();
           });
         }
       });
 
-      // 5. Send chunks of your mic audio
+      // 5) Send mic audio in slices
       const recorder = new MediaRecorder(micStream, { mimeType: 'audio/webm;codecs=opus' });
       recorder.addEventListener('dataavailable', (e) => {
         if (e.data.size > 0 && socket.readyState === WebSocket.OPEN) {
           socket.send(e.data);
         }
       });
-      recorder.start(200); // send every 200ms
+      recorder.start(200);
 
-      // 6. Cleanup on socket close
+      // 6) Cleanup on close
       socket.addEventListener('close', () => {
         recorder.stop();
         micStream.getTracks().forEach(t => t.stop());
@@ -108,9 +114,8 @@
       });
     }
 
-    // Attach the click handler
-    document.getElementById('connect')
-      .addEventListener('click', startLiveChat);
+    // Attach click handler
+    document.getElementById('connect').addEventListener('click', startLiveChat);
   </script>
 </body>
 </html>
