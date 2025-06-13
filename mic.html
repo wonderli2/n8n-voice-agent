@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+  <body style="display:flex;justify-content:center;align-items:center;height:100vh;">
+    <button id="mic" style="font-size:2rem;padding:1rem;">🎤 Hold to Talk</button>
+    <script>
+      let rec, chunks = [];
+      const mic = document.getElementById('mic');
+      mic.onmousedown = async () => {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        rec = new MediaRecorder(stream);
+        rec.ondataavailable = e => chunks.push(e.data);
+        rec.start();
+      };
+      mic.onmouseup = () => {
+        rec.stop();
+        rec.onstop = async () => {
+          const blob = new Blob(chunks, { type: 'audio/webm' });
+          await fetch('https://wonderli.app.n8n.cloud/webhook-test/voice-agent', {
+            method: 'POST',
+            body: blob
+          });
+          chunks = [];
+        };
+      };
+    </script>
+  </body>
+</html>
