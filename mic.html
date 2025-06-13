@@ -1,25 +1,72 @@
 <!DOCTYPE html>
 <html>
-  <body style="display:flex;justify-content:center;align-items:center;height:100vh;">
-    <button id="mic" style="font-size:2rem;padding:1rem;">🎤 Hold to Talk</button>
+  <head>
+    <meta charset="utf-8" />
+    <title>n8n Voice Agent</title>
+    <style>
+      /* Center the button on the page */
+      body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+        background: #fafafa;
+      }
+      #mic {
+        font-size: 2rem;
+        padding: 1rem 2rem;
+        border: none;
+        border-radius: 8px;
+        background: #0069ff;
+        color: white;
+      }
+      #mic:active {
+        background: #0051cc;
+      }
+    </style>
+  </head>
+  <body>
+    <button id="mic">🎤 Hold to Talk</button>
+
     <script>
-      let rec, chunks = [];
-      const mic = document.getElementById('mic');
-      mic.onmousedown = async () => {
+      let recorder;
+      let audioChunks = [];
+
+      const micButton = document.getElementById('mic');
+
+      micButton.onmousedown = async () => {
+        // Ask the browser for permission and start recording
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        rec = new MediaRecorder(stream);
-        rec.ondataavailable = e => chunks.push(e.data);
-        rec.start();
+        recorder = new MediaRecorder(stream);
+        recorder.ondataavailable = (event) => {
+          audioChunks.push(event.data);
+        };
+        recorder.start();
       };
-      mic.onmouseup = () => {
-        rec.stop();
-        rec.onstop = async () => {
-          const blob = new Blob(chunks, { type: 'audio/webm' });
-          await fetch('https://wonderli.app.n8n.cloud/webhook-test/voice-agent', {
+
+      micButton.onmouseup = () => {
+        // Stop recording
+        recorder.stop();
+        recorder.onstop = async () => {
+          // Combine chunks into one Blob
+          const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+          // Wrap it in a File so it has a .webm name
+          const audioFile = new File([audioBlob], 'voice.webm', { type: 'audio/webm' });
+
+          // Build a FormData payload and attach the file
+          const form = new FormData();
+          // 'data' is the Binary Property name in your Webhook node
+          form.append('data', audioFile);
+
+          // Send to your n8n webhook
+          await fetch('https://YOUR_N8N_DOMAIN/webhook/voice-agent', {
             method: 'POST',
-            body: blob
+            body: form
           });
-          chunks = [];
+
+          // Clear chunks for the next recording
+          audioChunks = [];
         };
       };
     </script>
