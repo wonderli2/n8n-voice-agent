@@ -20,54 +20,61 @@
         border-radius: 8px;
         background: #0069ff;
         color: white;
+        cursor: pointer;
       }
-      #mic:active {
-        background: #0051cc;
+      #mic.recording {
+        background: #cc0000;
       }
     </style>
   </head>
   <body>
-    <button id="mic">🎤 Hold to Talk</button>
+    <button id="mic">Toggle</button>
 
     <script>
       let recorder;
       let audioChunks = [];
+      let isRecording = false;
 
       const micButton = document.getElementById('mic');
 
-      micButton.onmousedown = async () => {
-        // Ask the browser for permission and start recording
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        recorder = new MediaRecorder(stream);
-        recorder.ondataavailable = (event) => {
-          audioChunks.push(event.data);
-        };
-        recorder.start();
-      };
+      micButton.onclick = async () => {
+        if (!isRecording) {
+          // Start recording
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          recorder = new MediaRecorder(stream);
+          recorder.ondataavailable = (event) => {
+            audioChunks.push(event.data);
+          };
+          recorder.start();
+          isRecording = true;
+          micButton.textContent = 'Stop';
+          micButton.classList.add('recording');
+        } else {
+          // Stop recording
+          recorder.stop();
+          recorder.onstop = async () => {
+            // Combine chunks into one Blob
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            // Wrap it in a File so it has a .webm name
+            const audioFile = new File([audioBlob], 'voice.webm', { type: 'audio/webm' });
 
-      micButton.onmouseup = () => {
-        // Stop recording
-        recorder.stop();
-        recorder.onstop = async () => {
-          // Combine chunks into one Blob
-          const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-          // Wrap it in a File so it has a .webm name
-          const audioFile = new File([audioBlob], 'voice.webm', { type: 'audio/webm' });
+            // Build a FormData payload and attach the file
+            const form = new FormData();
+            form.append('data', audioFile);
 
-          // Build a FormData payload and attach the file
-          const form = new FormData();
-          // 'data' is the Binary Property name in your Webhook node
-          form.append('data', audioFile);
+            // Send to your n8n webhook
+            await fetch('https://wonderli.app.n8n.cloud/webhook-test/voice-agent', {
+              method: 'POST',
+              body: form
+            });
 
-          // Send to your n8n webhook
-          await fetch('https://wonderli.app.n8n.cloud/webhook-test/voice-agent', {
-            method: 'POST',
-            body: form
-          });
-
-          // Clear chunks for the next recording
-          audioChunks = [];
-        };
+            // Reset for next recording
+            audioChunks = [];
+            isRecording = false;
+            micButton.textContent = 'Toggle';
+            micButton.classList.remove('recording');
+          };
+        }
       };
     </script>
   </body>
