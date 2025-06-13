@@ -14,79 +14,84 @@
       background: #fafafa;
       font-family: sans-serif;
     }
-    button {
+    #connect {
       font-size: 1.5rem;
       padding: 1rem 2rem;
-      margin: 0.5rem;
       border: none;
       border-radius: 8px;
       background: #0069ff;
       color: white;
       cursor: pointer;
     }
-    button:disabled {
+    #connect:disabled {
       background: #888;
     }
     #status {
       margin-top: 1rem;
     }
   </style>
+</head>
+<body>
+  <button id="connect">Connect & Talk</button>
+  <div id="status">▶️ Tap to start live chat</div>
+
   <script type="module">
     import { createChatStream, createAudioStream }
       from 'https://cdn.jsdelivr.net/npm/openai-realtime@0.1.0/dist/index.js';
 
-    let socket, recorder, micStream;
-
+    // Expose startLiveChat so it can be referenced
     async function startLiveChat() {
-      // ask for your API key each session
+      const btn = document.getElementById('connect');
+      const status = document.getElementById('status');
+
+      // 1. Prompt for API key
       const apiKey = prompt("Enter your OpenAI API key:");
       if (!apiKey) {
         alert("API key is required.");
         return;
       }
 
-      const btn = document.getElementById('connect');
-      const status = document.getElementById('status');
       btn.disabled = true;
-      status.textContent = '🎙️ Initializing…';
+      status.textContent = '🎙️ Initializing microphone…';
 
-      // 1. get mic permission
+      // 2. Get microphone permission
+      let micStream;
       try {
         micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      } catch (err) {
-        alert("Microphone access is required.");
+      } catch {
+        alert("Microphone access denied.");
         btn.disabled = false;
         return;
       }
 
-      // 2. connect to OpenAI realtime
-      status.textContent = '🔗 Connecting…';
+      // 3. Connect to OpenAI Realtime
+      status.textContent = '🔗 Connecting to OpenAI…';
+      let socket;
       try {
         socket = await createChatStream({ apiKey, model: 'gpt-4o-realtime' });
-      } catch (err) {
-        console.error(err);
-        alert("Could not connect to OpenAI.");
+      } catch {
+        alert("Failed to connect to OpenAI.");
         btn.disabled = false;
         return;
       }
 
       status.textContent = '🎧 Live—speak now';
 
-      // 3. play incoming audio chunks immediately
+      // 4. Play incoming audio immediately
       createAudioStream(socket, {
         onAudio: (chunk) => {
           const ctx = new AudioContext();
-          ctx.decodeAudioData(chunk.buffer).then(buf => {
+          ctx.decodeAudioData(chunk.buffer).then(buffer => {
             const src = ctx.createBufferSource();
-            src.buffer = buf;
+            src.buffer = buffer;
             src.connect(ctx.destination);
             src.start();
           });
         }
       });
 
-      // 4. capture and send mic audio in small slices
-      recorder = new MediaRecorder(micStream, { mimeType: 'audio/webm;codecs=opus' });
+      // 5. Send chunks of your mic audio
+      const recorder = new MediaRecorder(micStream, { mimeType: 'audio/webm;codecs=opus' });
       recorder.addEventListener('dataavailable', (e) => {
         if (e.data.size > 0 && socket.readyState === WebSocket.OPEN) {
           socket.send(e.data);
@@ -94,7 +99,7 @@
       });
       recorder.start(200); // send every 200ms
 
-      // 5. cleanup on close
+      // 6. Cleanup on socket close
       socket.addEventListener('close', () => {
         recorder.stop();
         micStream.getTracks().forEach(t => t.stop());
@@ -102,10 +107,10 @@
         btn.disabled = false;
       });
     }
+
+    // Attach the click handler
+    document.getElementById('connect')
+      .addEventListener('click', startLiveChat);
   </script>
-</head>
-<body>
-  <button id="connect" onclick="startLiveChat()">Connect & Talk</button>
-  <div id="status">▶️ Tap to start live chat</div>
 </body>
 </html>
