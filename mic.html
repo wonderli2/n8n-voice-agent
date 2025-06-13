@@ -15,11 +15,11 @@
       font-family: sans-serif;
     }
     button {
-      font-size: 1.25rem;
-      padding: 0.75rem 1.5rem;
+      font-size: 1.5rem;
+      padding: 1rem 2rem;
       margin: 0.5rem;
       border: none;
-      border-radius: 6px;
+      border-radius: 8px;
       background: #0069ff;
       color: white;
       cursor: pointer;
@@ -32,11 +32,13 @@
     }
   </style>
   <script type="module">
-    import { createChatStream, createAudioStream } from 'https://cdn.jsdelivr.net/npm/openai-realtime@0.1.0/dist/index.js';
+    import { createChatStream, createAudioStream }
+      from 'https://cdn.jsdelivr.net/npm/openai-realtime@0.1.0/dist/index.js';
 
     let socket, recorder, micStream;
 
     async function startLiveChat() {
+      // ask for your API key each session
       const apiKey = prompt("Enter your OpenAI API key:");
       if (!apiKey) {
         alert("API key is required.");
@@ -46,56 +48,53 @@
       const btn = document.getElementById('connect');
       const status = document.getElementById('status');
       btn.disabled = true;
-      status.textContent = '🎙️ Initializing microphone…';
+      status.textContent = '🎙️ Initializing…';
 
-      // 1. Ask for mic permission
+      // 1. get mic permission
       try {
         micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       } catch (err) {
-        alert("Microphone access denied.");
+        alert("Microphone access is required.");
         btn.disabled = false;
         return;
       }
 
-      // 2. OpenAI realtime connection
-      status.textContent = '🔗 Connecting to OpenAI…';
+      // 2. connect to OpenAI realtime
+      status.textContent = '🔗 Connecting…';
       try {
-        socket = await createChatStream({
-          apiKey,
-          model: 'gpt-4o-realtime'  // or whichever realtime model you have access to
-        });
+        socket = await createChatStream({ apiKey, model: 'gpt-4o-realtime' });
       } catch (err) {
         console.error(err);
-        alert("Failed to connect to OpenAI.");
+        alert("Could not connect to OpenAI.");
         btn.disabled = false;
         return;
       }
 
-      status.textContent = '🎧 Live—speak anytime';
+      status.textContent = '🎧 Live—speak now';
 
-      // 3. Play back incoming audio immediately
+      // 3. play incoming audio chunks immediately
       createAudioStream(socket, {
         onAudio: (chunk) => {
-          const audioCtx = new AudioContext();
-          audioCtx.decodeAudioData(chunk.buffer).then(buffer => {
-            const src = audioCtx.createBufferSource();
-            src.buffer = buffer;
-            src.connect(audioCtx.destination);
+          const ctx = new AudioContext();
+          ctx.decodeAudioData(chunk.buffer).then(buf => {
+            const src = ctx.createBufferSource();
+            src.buffer = buf;
+            src.connect(ctx.destination);
             src.start();
           });
         }
       });
 
-      // 4. Send microphone audio in small slices
+      // 4. capture and send mic audio in small slices
       recorder = new MediaRecorder(micStream, { mimeType: 'audio/webm;codecs=opus' });
       recorder.addEventListener('dataavailable', (e) => {
         if (e.data.size > 0 && socket.readyState === WebSocket.OPEN) {
           socket.send(e.data);
         }
       });
-      recorder.start(200);  // push audio every 200ms
+      recorder.start(200); // send every 200ms
 
-      // 5. Clean up when done
+      // 5. cleanup on close
       socket.addEventListener('close', () => {
         recorder.stop();
         micStream.getTracks().forEach(t => t.stop());
