@@ -4,7 +4,6 @@
     <meta charset="utf-8" />
     <title>n8n Voice Agent</title>
     <style>
-      /* Center the button and player on the page */
       body {
         display: flex;
         flex-direction: column;
@@ -15,10 +14,12 @@
         background: #fafafa;
       }
       #mic {
-        /* make it a large circle */
-        width: 200px;
-        height: 200px;
-        font-size: 2.5rem;
+        /* make it a larger circle */
+        width: 60vw;               /* 60% of viewport width */
+        max-width: 350px;          /* but no more than 350px */
+        height: 60vw;              /* same as width */
+        max-height: 350px;         /* but no more than 350px */
+        font-size: 4rem;           /* bigger label */
         border: none;
         border-radius: 50%;
         background: #0069ff;
@@ -30,22 +31,17 @@
         align-items: center;
         margin-bottom: 1rem;
       }
-      /* for small screens, fill most of width */
+      /* extra bump on very small phones */
       @media only screen and (max-width: 400px) {
         #mic {
-          width: 90vw;
-          height: 90vw;
-          font-size: 3rem;
-          border-radius: 45vw;
+          width: 80vw;
+          height: 80vw;
+          font-size: 5rem;
         }
       }
-      #mic.recording {
-        background: #cc0000;
-      }
-      #mic.working {
-        background: #f0c000;
-        color: #333;
-      }
+      #mic.recording { background: #cc0000; }
+      #mic.working   { background: #f0c000; color: #333; }
+
       audio {
         width: 90%;
         max-width: 600px;
@@ -64,7 +60,7 @@
 
       let recorder, micStream = null, audioChunks = [], isRecording = false;
       const micButton = document.getElementById('mic');
-      const player = document.getElementById('player');
+      const player    = document.getElementById('player');
 
       micButton.onclick = async () => {
         if (audioCtx.state === 'suspended') {
@@ -78,7 +74,7 @@
 
         if (!isRecording) {
           audioChunks = [];
-          if (micStream) { micStream.getTracks().forEach(t=>t.stop()); micStream = null; }
+          if (micStream) micStream.getTracks().forEach(t=>t.stop()), micStream = null;
           try {
             micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
           } catch {
@@ -93,7 +89,6 @@
           micButton.classList.add('recording');
           micButton.classList.remove('working');
           player.style.display = 'none';
-
         } else {
           recorder.stop();
           recorder.onstop = async () => {
@@ -101,16 +96,24 @@
             micButton.classList.remove('recording');
             micButton.classList.add('working');
             isRecording = false;
-            if (micStream) { micStream.getTracks().forEach(t=>t.stop()); micStream = null; }
+            if (micStream) micStream.getTracks().forEach(t=>t.stop()), micStream = null;
             if (!audioChunks.length) { alert('No audio captured.'); resetButton(); return; }
 
-            const blob = new Blob(audioChunks,{type:'audio/webm'});
-            const file = new File([blob],'voice.webm',{type:'audio/webm'});
-            const form = new FormData(); form.append('data',file);
+            const blob = new Blob(audioChunks, { type:'audio/webm' });
+            const file = new File([blob],'voice.webm',{ type:'audio/webm' });
+            const form = new FormData(); form.append('data', file);
 
             let res;
-            try { res = await fetch('https://wonderli.app.n8n.cloud/webhook/voice-agent',{method:'POST',body:form}); }
-            catch { alert('Network error sending audio.'); resetButton(); return; }
+            try {
+              res = await fetch('https://wonderli.app.n8n.cloud/webhook/voice-agent', {
+                method: 'POST',
+                body: form
+              });
+            } catch {
+              alert('Network error sending audio.');
+              resetButton();
+              return;
+            }
             if (!res.ok) { alert('Server error: '+res.status); resetButton(); return; }
 
             let tts;
@@ -120,7 +123,7 @@
             const url = URL.createObjectURL(tts);
             player.src = url;
             player.style.display = 'block';
-            player.play().catch(()=>{});
+            player.play().catch(() => {});
 
             resetButton();
           };
