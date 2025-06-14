@@ -2,30 +2,31 @@
 <html>
   <head>
     <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
     <title>n8n Voice Agent</title>
     <style>
-      /* Prevent any scrolling on mobile */
+      /* Kill any scrolling and set full height */
       html, body {
         margin: 0;
         padding: 0;
-        height: 100vh;
+        width: 100%;
+        height: 100%;
         overflow: hidden;
       }
-      /* Center the button and player on the page */
+      /* Center the button */
       body {
         display: flex;
-        flex-direction: column;
         justify-content: center;
         align-items: center;
         background: #fafafa;
       }
       #mic {
-        /* make it a larger circle */
-        width: 60vw;               /* 60% of viewport width */
-        max-width: 350px;          /* but no more than 350px */
-        height: 60vw;              /* same as width */
-        max-height: 350px;         /* but no more than 350px */
-        font-size: 4rem;           /* bigger label */
+        /* circle sizing from your preferred version */
+        width: 60vw;
+        max-width: 350px;
+        height: 60vw;
+        max-height: 350px;
+        font-size: 4rem;
         border: none;
         border-radius: 50%;
         background: #0069ff;
@@ -35,6 +36,7 @@
         display: flex;
         justify-content: center;
         align-items: center;
+        /* removed margin-bottom so it’s dead-center */
       }
       /* extra bump on very small phones */
       @media only screen and (max-width: 400px) {
@@ -47,9 +49,8 @@
       #mic.recording { background: #cc0000; }
       #mic.working   { background: #f0c000; color: #333; }
 
-      audio {
-        display: none;
-      }
+      /* hide the audio element completely */
+      audio { display: none; }
     </style>
   </head>
   <body>
@@ -117,8 +118,7 @@
 
             const url = URL.createObjectURL(tts);
             player.src = url;
-            player.style.display = 'block';
-            player.play().catch(() => {});
+            player.play().catch(()=>{});
 
             resetButton();
           };
