@@ -5,26 +5,32 @@
     <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
     <title>n8n Voice Agent</title>
     <style>
-      /* No scrolling, full-screen centering */
+      /* Prevent any scrolling */
       html, body {
-        margin: 0; padding: 0;
-        width: 100%; height: 100%;
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
         overflow: hidden;
       }
+      /* Center the button */
       body {
         display: flex;
         justify-content: center;
         align-items: center;
         background: #fafafa;
       }
-
-      /* Your circle button */
+      /* Your circular mic button */
       #mic {
-        width: 60vw; max-width: 350px;
-        height: 60vw; max-height: 350px;
+        width: 60vw;
+        max-width: 350px;
+        height: 60vw;
+        max-height: 350px;
         font-size: 4rem;
-        border: none; border-radius: 50%;
-        background: #0069ff; color: white;
+        border: none;
+        border-radius: 50%;
+        background: #0069ff;
+        color: white;
         cursor: pointer;
         transition: background 0.2s;
         display: flex;
@@ -33,18 +39,19 @@
       }
       @media only screen and (max-width: 400px) {
         #mic {
-          width: 80vw; height: 80vw;
+          width: 80vw;
+          height: 80vw;
           font-size: 5rem;
         }
       }
       #mic.recording { background: #cc0000; }
       #mic.working   { background: #f0c000; color: #333; }
 
-      /* Hide on desktop, show on mobile */
+      /* Audio controls: hidden on desktop (fine pointers), shown on touch devices */
       audio {
         display: none;
       }
-      @media only screen and (max-width: 768px) {
+      @media (pointer: coarse) {
         audio {
           display: block;
           position: fixed;
@@ -61,7 +68,7 @@
     <audio id="player" controls></audio>
 
     <script>
-      // unlock audio on first gesture
+      // create & unlock AudioContext
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       const audioCtx = new AudioCtx();
 
@@ -70,6 +77,7 @@
       const player    = document.getElementById('player');
 
       micButton.onclick = async () => {
+        // silent unlock under user gesture
         if (audioCtx.state === 'suspended') {
           const buf = audioCtx.createBuffer(1,1,audioCtx.sampleRate);
           const src = audioCtx.createBufferSource();
@@ -80,8 +88,12 @@
         }
 
         if (!isRecording) {
+          // start recording
           audioChunks = [];
-          if (micStream) micStream.getTracks().forEach(t=>t.stop()), micStream = null;
+          if (micStream) {
+            micStream.getTracks().forEach(t => t.stop());
+            micStream = null;
+          }
           try {
             micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
           } catch {
@@ -97,33 +109,54 @@
           micButton.classList.remove('working');
           player.style.display = 'none';
         } else {
+          // stop recording
           recorder.stop();
           recorder.onstop = async () => {
             micButton.textContent = 'Working';
             micButton.classList.remove('recording');
             micButton.classList.add('working');
             isRecording = false;
-            if (micStream) micStream.getTracks().forEach(t=>t.stop()), micStream = null;
-            if (!audioChunks.length) { alert('No audio captured.'); resetButton(); return; }
-
+            if (micStream) {
+              micStream.getTracks().forEach(t => t.stop());
+              micStream = null;
+            }
+            if (!audioChunks.length) {
+              alert('No audio captured.');
+              resetButton();
+              return;
+            }
+            // package and send
             const blob = new Blob(audioChunks, { type:'audio/webm' });
             const file = new File([blob],'voice.webm',{ type:'audio/webm' });
-            const form = new FormData(); form.append('data', file);
-
+            const form = new FormData();
+            form.append('data', file);
             let res;
-            try { res = await fetch('https://wonderli.app.n8n.cloud/webhook/voice-agent',{method:'POST',body:form}); }
-            catch { alert('Network error sending audio.'); resetButton(); return; }
-            if (!res.ok) { alert('Server error: '+res.status); resetButton(); return; }
-
+            try {
+              res = await fetch('https://wonderli.app.n8n.cloud/webhook/voice-agent', {
+                method: 'POST',
+                body: form
+              });
+            } catch {
+              alert('Network error sending audio.');
+              resetButton();
+              return;
+            }
+            if (!res.ok) {
+              alert('Server error: ' + res.status);
+              resetButton();
+              return;
+            }
+            // receive and play
             let tts;
-            try { tts = await res.blob(); }
-            catch { alert('Error receiving audio.'); resetButton(); return; }
-
-            const url = URL.createObjectURL(tts);
-            player.src = url;
-            player.style.display = 'block';
+            try {
+              tts = await res.blob();
+            } catch {
+              alert('Error receiving audio.');
+              resetButton();
+              return;
+            }
+            player.src = URL.createObjectURL(tts);
             player.play().catch(()=>{});
-
             resetButton();
           };
         }
