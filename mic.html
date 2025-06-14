@@ -15,29 +15,35 @@
         background: #fafafa;
       }
       #mic {
-        font-size: 3.5rem;             /* larger by default */
-        padding: 2rem 4rem;            /* larger tap target */
+        /* make it a large circle */
+        width: 200px;
+        height: 200px;
+        font-size: 2.5rem;
         border: none;
-        border-radius: 12px;
-        background: #0069ff;           /* blue */
+        border-radius: 50%;
+        background: #0069ff;
         color: white;
         cursor: pointer;
-        margin-bottom: 1rem;
         transition: background 0.2s;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-bottom: 1rem;
       }
-      /* For very small screens, make it almost full width */
+      /* for small screens, fill most of width */
       @media only screen and (max-width: 400px) {
         #mic {
           width: 90vw;
-          font-size: 4rem;
-          padding: 2rem;
+          height: 90vw;
+          font-size: 3rem;
+          border-radius: 45vw;
         }
       }
       #mic.recording {
-        background: #cc0000;           /* red */
+        background: #cc0000;
       }
       #mic.working {
-        background: #f0c000;           /* yellow */
+        background: #f0c000;
         color: #333;
       }
       audio {
@@ -52,48 +58,35 @@
     <audio id="player" controls style="display:none;"></audio>
 
     <script>
-      // create AudioContext once to unlock playback on first gesture
+      // unlock audio on first gesture
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       const audioCtx = new AudioCtx();
 
-      let recorder;
-      let micStream = null;
-      let audioChunks = [];
-      let isRecording = false;
+      let recorder, micStream = null, audioChunks = [], isRecording = false;
       const micButton = document.getElementById('mic');
       const player = document.getElementById('player');
 
       micButton.onclick = async () => {
-        // silent unlock under user gesture
         if (audioCtx.state === 'suspended') {
-          const buf = audioCtx.createBuffer(1, 1, audioCtx.sampleRate);
+          const buf = audioCtx.createBuffer(1,1,audioCtx.sampleRate);
           const src = audioCtx.createBufferSource();
           src.buffer = buf;
           src.connect(audioCtx.destination);
           src.start();
           await audioCtx.resume();
-          console.log('AudioContext unlocked');
         }
 
         if (!isRecording) {
-          // Prepare for recording
           audioChunks = [];
-          if (micStream) {
-            micStream.getTracks().forEach(t => t.stop());
-            micStream = null;
-          }
+          if (micStream) { micStream.getTracks().forEach(t=>t.stop()); micStream = null; }
           try {
             micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          } catch (err) {
-            console.error('Microphone error:', err);
+          } catch {
             alert('Unable to access microphone.');
             return;
           }
           recorder = new MediaRecorder(micStream);
-          recorder.ondataavailable = e => {
-            console.log('Chunk captured:', e.data.size, 'bytes');
-            audioChunks.push(e.data);
-          };
+          recorder.ondataavailable = e => audioChunks.push(e.data);
           recorder.start();
           isRecording = true;
           micButton.textContent = 'Stop';
@@ -102,69 +95,32 @@
           player.style.display = 'none';
 
         } else {
-          // Stop recording
           recorder.stop();
           recorder.onstop = async () => {
-            // immediately show working state
             micButton.textContent = 'Working';
             micButton.classList.remove('recording');
             micButton.classList.add('working');
             isRecording = false;
+            if (micStream) { micStream.getTracks().forEach(t=>t.stop()); micStream = null; }
+            if (!audioChunks.length) { alert('No audio captured.'); resetButton(); return; }
 
-            // Stop mic tracks
-            if (micStream) {
-              micStream.getTracks().forEach(t => t.stop());
-              micStream = null;
-            }
-            if (!audioChunks.length) {
-              alert('Recording failed—no audio captured.');
-              resetButton();
-              return;
-            }
+            const blob = new Blob(audioChunks,{type:'audio/webm'});
+            const file = new File([blob],'voice.webm',{type:'audio/webm'});
+            const form = new FormData(); form.append('data',file);
 
-            // Combine chunks
-            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-            console.log('Blob size:', audioBlob.size);
-            const audioFile = new File([audioBlob], 'voice.webm', { type: 'audio/webm' });
-            const form = new FormData();
-            form.append('data', audioFile);
+            let res;
+            try { res = await fetch('https://wonderli.app.n8n.cloud/webhook/voice-agent',{method:'POST',body:form}); }
+            catch { alert('Network error sending audio.'); resetButton(); return; }
+            if (!res.ok) { alert('Server error: '+res.status); resetButton(); return; }
 
-            let response;
-            try {
-              response = await fetch('https://wonderli.app.n8n.cloud/webhook/voice-agent', {
-                method: 'POST',
-                body: form
-              });
-            } catch (err) {
-              console.error('Network error:', err);
-              alert('Network error sending audio.');
-              resetButton();
-              return;
-            }
-            if (!response.ok) {
-              console.error('Server error status:', response.status);
-              alert('Server error: ' + response.status);
-              resetButton();
-              return;
-            }
+            let tts;
+            try { tts = await res.blob(); }
+            catch { alert('Error receiving audio.'); resetButton(); return; }
 
-            let ttsBlob;
-            try {
-              ttsBlob = await response.blob();
-            } catch (err) {
-              console.error('Error reading response:', err);
-              alert('Error receiving audio.');
-              resetButton();
-              return;
-            }
-
-            console.log('Received audio size:', ttsBlob.size);
-            const audioURL = URL.createObjectURL(ttsBlob);
-            player.src = audioURL;
+            const url = URL.createObjectURL(tts);
+            player.src = url;
             player.style.display = 'block';
-            player.play().catch(err => {
-              console.warn('Playback silent fail (expected on first run):', err);
-            });
+            player.play().catch(()=>{});
 
             resetButton();
           };
@@ -174,7 +130,7 @@
       function resetButton() {
         isRecording = false;
         micButton.textContent = 'Toggle';
-        micButton.classList.remove('recording', 'working');
+        micButton.classList.remove('recording','working');
       }
     </script>
   </body>
