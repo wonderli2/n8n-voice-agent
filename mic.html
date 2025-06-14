@@ -52,7 +52,7 @@
     <audio id="player" controls style="display:none;"></audio>
 
     <script>
-      // unlock AudioContext on first user gesture to allow autoplay
+      // create AudioContext once to unlock playback on first gesture
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       const audioCtx = new AudioCtx();
 
@@ -64,10 +64,15 @@
       const player = document.getElementById('player');
 
       micButton.onclick = async () => {
-        // resume AudioContext under user gesture so subsequent play() works immediately
+        // silent unlock under user gesture
         if (audioCtx.state === 'suspended') {
+          const buf = audioCtx.createBuffer(1, 1, audioCtx.sampleRate);
+          const src = audioCtx.createBufferSource();
+          src.buffer = buf;
+          src.connect(audioCtx.destination);
+          src.start();
           await audioCtx.resume();
-          console.log('AudioContext resumed');
+          console.log('AudioContext unlocked');
         }
 
         if (!isRecording) {
@@ -157,7 +162,6 @@
             const audioURL = URL.createObjectURL(ttsBlob);
             player.src = audioURL;
             player.style.display = 'block';
-            // play without alerting on initial autoplay hiccup
             player.play().catch(err => {
               console.warn('Playback silent fail (expected on first run):', err);
             });
