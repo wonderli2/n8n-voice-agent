@@ -40,6 +40,7 @@
 
     <script>
       let recorder;
+      let micStream = null;
       let audioChunks = [];
       let isRecording = false;
       const micButton = document.getElementById('mic');
@@ -47,21 +48,25 @@
 
       micButton.onclick = async () => {
         if (!isRecording) {
-          // Reset chunks for a fresh start
+          // Prepare for recording
           audioChunks = [];
+          if (micStream) {
+            // Stop any previously open stream
+            micStream.getTracks().forEach(t => t.stop());
+            micStream = null;
+          }
 
-          // Start recording
+          // Start new recording
           try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            recorder = new MediaRecorder(stream);
+            micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
           } catch (err) {
-            console.error('Mic error:', err);
+            console.error('Microphone error:', err);
             alert('Unable to access microphone.');
             return;
           }
-
+          recorder = new MediaRecorder(micStream);
           recorder.ondataavailable = e => {
-            console.log('Chunk arrived, size:', e.data.size);
+            console.log('Chunk captured:', e.data.size, 'bytes');
             audioChunks.push(e.data);
           };
           recorder.start();
@@ -74,21 +79,24 @@
           // Stop recording
           recorder.stop();
           recorder.onstop = async () => {
+            // Stop mic stream tracks
+            if (micStream) {
+              micStream.getTracks().forEach(t => t.stop());
+              micStream = null;
+            }
+
             if (!audioChunks.length) {
-              console.error('No audio chunks were recorded.');
-              alert('Recording failed. Please try again.');
+              console.error('No audio recorded.');
+              alert('Recording failed—no audio captured.');
               resetButton();
               return;
             }
 
-            // Combine chunks into one Blob
+            // Combine chunks
             const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-            console.log('Total blob size:', audioBlob.size);
+            console.log('Blob size:', audioBlob.size);
 
-            // Wrap it in a File so it has a .webm name
             const audioFile = new File([audioBlob], 'voice.webm', { type: 'audio/webm' });
-
-            // Build a FormData payload and attach the file
             const form = new FormData();
             form.append('data', audioFile);
 
@@ -99,33 +107,30 @@
                 body: form
               });
             } catch (err) {
-              console.error('Fetch error:', err);
+              console.error('Network error:', err);
               alert('Network error sending audio.');
               resetButton();
               return;
             }
 
             if (!response.ok) {
-              console.error('Server returned status', response.status);
+              console.error('Server error status:', response.status);
               alert('Server error: ' + response.status);
               resetButton();
               return;
             }
 
-            // Read the response as a Blob (MP3)
             let ttsBlob;
             try {
               ttsBlob = await response.blob();
             } catch (err) {
-              console.error('Error reading blob:', err);
+              console.error('Error reading response:', err);
               alert('Error receiving audio.');
               resetButton();
               return;
             }
 
-            console.log('Received TTS blob size:', ttsBlob.size);
-
-            // Create a URL for that blob and play it immediately
+            console.log('Received audio size:', ttsBlob.size);
             const audioURL = URL.createObjectURL(ttsBlob);
             player.src = audioURL;
             player.style.display = 'block';
@@ -134,7 +139,6 @@
               alert('Playback error.');
             });
 
-            // Finally reset state
             resetButton();
           };
         }
