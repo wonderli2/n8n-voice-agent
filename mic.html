@@ -15,17 +15,22 @@
         background: #fafafa;
       }
       #mic {
-        font-size: 2rem;
-        padding: 1rem 2rem;
+        font-size: 3rem;             /* bigger text */
+        padding: 1.5rem 3rem;        /* bigger tap target */
         border: none;
         border-radius: 8px;
-        background: #0069ff;
+        background: #0069ff;         /* blue */
         color: white;
         cursor: pointer;
         margin-bottom: 1rem;
+        transition: background 0.2s;
       }
       #mic.recording {
-        background: #cc0000;
+        background: #cc0000;         /* red */
+      }
+      #mic.working {
+        background: #f0c000;         /* yellow */
+        color: #333;
       }
       audio {
         width: 90%;
@@ -51,12 +56,9 @@
           // Prepare for recording
           audioChunks = [];
           if (micStream) {
-            // Stop any previously open stream
             micStream.getTracks().forEach(t => t.stop());
             micStream = null;
           }
-
-          // Start new recording
           try {
             micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
           } catch (err) {
@@ -79,14 +81,18 @@
           // Stop recording
           recorder.stop();
           recorder.onstop = async () => {
-            // Stop mic stream tracks
+            // immediately show working state
+            micButton.textContent = 'Working';
+            micButton.classList.remove('recording');
+            micButton.classList.add('working');
+            isRecording = false;
+
+            // Stop mic tracks
             if (micStream) {
               micStream.getTracks().forEach(t => t.stop());
               micStream = null;
             }
-
             if (!audioChunks.length) {
-              console.error('No audio recorded.');
               alert('Recording failed—no audio captured.');
               resetButton();
               return;
@@ -95,7 +101,6 @@
             // Combine chunks
             const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
             console.log('Blob size:', audioBlob.size);
-
             const audioFile = new File([audioBlob], 'voice.webm', { type: 'audio/webm' });
             const form = new FormData();
             form.append('data', audioFile);
@@ -112,7 +117,6 @@
               resetButton();
               return;
             }
-
             if (!response.ok) {
               console.error('Server error status:', response.status);
               alert('Server error: ' + response.status);
@@ -147,7 +151,7 @@
       function resetButton() {
         isRecording = false;
         micButton.textContent = 'Toggle';
-        micButton.classList.remove('recording');
+        micButton.classList.remove('recording', 'working');
       }
     </script>
   </body>
