@@ -4,23 +4,28 @@
     <meta charset="utf-8" />
     <title>n8n Voice Agent</title>
     <style>
+      /* Prevent any scrolling on mobile */
+      html, body {
+        margin: 0;
+        padding: 0;
+        height: 100vh;
+        overflow: hidden;
+      }
       /* Center the button and player on the page */
       body {
         display: flex;
         flex-direction: column;
         justify-content: center;
         align-items: center;
-        height: 100vh;
-        margin: 0;
         background: #fafafa;
       }
       #mic {
-        /* doubled from 60vw→100vw, capped at 700px */
-        width: 100vw;
-        max-width: 700px;
-        height: 100vw;
-        max-height: 700px;
-        font-size: 8rem;           /* doubled from 4rem */
+        /* make it a larger circle */
+        width: 60vw;               /* 60% of viewport width */
+        max-width: 350px;          /* but no more than 350px */
+        height: 60vw;              /* same as width */
+        max-height: 350px;         /* but no more than 350px */
+        font-size: 4rem;           /* bigger label */
         border: none;
         border-radius: 50%;
         background: #0069ff;
@@ -30,29 +35,26 @@
         display: flex;
         justify-content: center;
         align-items: center;
-        margin-bottom: 1rem;
       }
-      /* on very small screens, nearly full width */
+      /* extra bump on very small phones */
       @media only screen and (max-width: 400px) {
         #mic {
-          width: 100vw;
-          height: 100vw;
-          font-size: 10rem;        /* bigger for tiny screens */
+          width: 80vw;
+          height: 80vw;
+          font-size: 5rem;
         }
       }
       #mic.recording { background: #cc0000; }
       #mic.working   { background: #f0c000; color: #333; }
 
       audio {
-        width: 90%;
-        max-width: 600px;
-        margin-top: 1rem;
+        display: none;
       }
     </style>
   </head>
   <body>
     <button id="mic">Toggle</button>
-    <audio id="player" controls style="display:none;"></audio>
+    <audio id="player" controls></audio>
 
     <script>
       // unlock audio on first gesture
