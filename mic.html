@@ -15,21 +15,29 @@
         background: #fafafa;
       }
       #mic {
-        font-size: 3rem;             /* bigger text */
-        padding: 1.5rem 3rem;        /* bigger tap target */
+        font-size: 3.5rem;             /* larger by default */
+        padding: 2rem 4rem;            /* larger tap target */
         border: none;
-        border-radius: 8px;
-        background: #0069ff;         /* blue */
+        border-radius: 12px;
+        background: #0069ff;           /* blue */
         color: white;
         cursor: pointer;
         margin-bottom: 1rem;
         transition: background 0.2s;
       }
+      /* For very small screens, make it almost full width */
+      @media only screen and (max-width: 400px) {
+        #mic {
+          width: 90vw;
+          font-size: 4rem;
+          padding: 2rem;
+        }
+      }
       #mic.recording {
-        background: #cc0000;         /* red */
+        background: #cc0000;           /* red */
       }
       #mic.working {
-        background: #f0c000;         /* yellow */
+        background: #f0c000;           /* yellow */
         color: #333;
       }
       audio {
@@ -75,6 +83,7 @@
           isRecording = true;
           micButton.textContent = 'Stop';
           micButton.classList.add('recording');
+          micButton.classList.remove('working');
           player.style.display = 'none';
 
         } else {
@@ -138,9 +147,9 @@
             const audioURL = URL.createObjectURL(ttsBlob);
             player.src = audioURL;
             player.style.display = 'block';
+            // play without alerting on initial autoplay hiccup
             player.play().catch(err => {
-              console.error('Playback error:', err);
-              alert('Playback error.');
+              console.warn('Playback silent fail (expected on first run):', err);
             });
 
             resetButton();
