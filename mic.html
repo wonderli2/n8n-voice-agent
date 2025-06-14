@@ -15,17 +15,22 @@
         background: #fafafa;
       }
       #mic {
-        font-size: 2rem;
-        padding: 1rem 2rem;
+        font-size: 3rem;             /* bigger text */
+        padding: 1.5rem 3rem;        /* bigger tap target */
         border: none;
         border-radius: 8px;
-        background: #0069ff;
+        background: #0069ff;         /* blue */
         color: white;
         cursor: pointer;
         margin-bottom: 1rem;
+        transition: background 0.2s;
       }
       #mic.recording {
-        background: #cc0000;
+        background: #cc0000;         /* red */
+      }
+      #mic.working {
+        background: #f0c000;         /* yellow */
+        color: #333;
       }
       audio {
         width: 90%;
@@ -48,15 +53,12 @@
 
       micButton.onclick = async () => {
         if (!isRecording) {
-          // Prepare for recording
+          // PREPARE FOR RECORDING
           audioChunks = [];
           if (micStream) {
-            // Stop any previously open stream
             micStream.getTracks().forEach(t => t.stop());
             micStream = null;
           }
-
-          // Start new recording
           try {
             micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
           } catch (err) {
@@ -65,10 +67,7 @@
             return;
           }
           recorder = new MediaRecorder(micStream);
-          recorder.ondataavailable = e => {
-            console.log('Chunk captured:', e.data.size, 'bytes');
-            audioChunks.push(e.data);
-          };
+          recorder.ondataavailable = e => audioChunks.push(e.data);
           recorder.start();
           isRecording = true;
           micButton.textContent = 'Stop';
@@ -76,33 +75,36 @@
           player.style.display = 'none';
 
         } else {
-          // Stop recording
+          // STOP RECORDING
           recorder.stop();
           recorder.onstop = async () => {
-            // Stop mic stream tracks
+            // immediately reflect “working” state
+            isRecording = false;
+            micButton.textContent = 'Working';
+            micButton.classList.remove('recording');
+            micButton.classList.add('working');
+
+            // stop mic
             if (micStream) {
               micStream.getTracks().forEach(t => t.stop());
               micStream = null;
             }
-
             if (!audioChunks.length) {
-              console.error('No audio recorded.');
               alert('Recording failed—no audio captured.');
               resetButton();
               return;
             }
 
-            // Combine chunks
+            // package audio
             const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-            console.log('Blob size:', audioBlob.size);
-
             const audioFile = new File([audioBlob], 'voice.webm', { type: 'audio/webm' });
             const form = new FormData();
             form.append('data', audioFile);
 
+            // send & await response
             let response;
             try {
-              response = await fetch('https://wonderli.app.n8n.cloud/webhook/voice-agent', {
+              response = await fetch('https://wonderli.app.n8n.cloud/webhook-test/voice-agent', {
                 method: 'POST',
                 body: form
               });
@@ -112,9 +114,7 @@
               resetButton();
               return;
             }
-
             if (!response.ok) {
-              console.error('Server error status:', response.status);
               alert('Server error: ' + response.status);
               resetButton();
               return;
@@ -130,7 +130,7 @@
               return;
             }
 
-            console.log('Received audio size:', ttsBlob.size);
+            // play it
             const audioURL = URL.createObjectURL(ttsBlob);
             player.src = audioURL;
             player.style.display = 'block';
@@ -139,6 +139,7 @@
               alert('Playback error.');
             });
 
+            // back to start
             resetButton();
           };
         }
@@ -147,7 +148,7 @@
       function resetButton() {
         isRecording = false;
         micButton.textContent = 'Toggle';
-        micButton.classList.remove('recording');
+        micButton.classList.remove('recording', 'working');
       }
     </script>
   </body>
