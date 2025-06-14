@@ -52,6 +52,10 @@
     <audio id="player" controls style="display:none;"></audio>
 
     <script>
+      // unlock AudioContext on first user gesture to allow autoplay
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      const audioCtx = new AudioCtx();
+
       let recorder;
       let micStream = null;
       let audioChunks = [];
@@ -60,6 +64,12 @@
       const player = document.getElementById('player');
 
       micButton.onclick = async () => {
+        // resume AudioContext under user gesture so subsequent play() works immediately
+        if (audioCtx.state === 'suspended') {
+          await audioCtx.resume();
+          console.log('AudioContext resumed');
+        }
+
         if (!isRecording) {
           // Prepare for recording
           audioChunks = [];
