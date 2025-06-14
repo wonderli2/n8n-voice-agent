@@ -47,21 +47,44 @@
 
       micButton.onclick = async () => {
         if (!isRecording) {
+          // Reset chunks for a fresh start
+          audioChunks = [];
+
           // Start recording
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          recorder = new MediaRecorder(stream);
-          recorder.ondataavailable = e => audioChunks.push(e.data);
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            recorder = new MediaRecorder(stream);
+          } catch (err) {
+            console.error('Mic error:', err);
+            alert('Unable to access microphone.');
+            return;
+          }
+
+          recorder.ondataavailable = e => {
+            console.log('Chunk arrived, size:', e.data.size);
+            audioChunks.push(e.data);
+          };
           recorder.start();
           isRecording = true;
           micButton.textContent = 'Stop';
           micButton.classList.add('recording');
           player.style.display = 'none';
+
         } else {
           // Stop recording
           recorder.stop();
           recorder.onstop = async () => {
+            if (!audioChunks.length) {
+              console.error('No audio chunks were recorded.');
+              alert('Recording failed. Please try again.');
+              resetButton();
+              return;
+            }
+
             // Combine chunks into one Blob
             const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            console.log('Total blob size:', audioBlob.size);
+
             // Wrap it in a File so it has a .webm name
             const audioFile = new File([audioBlob], 'voice.webm', { type: 'audio/webm' });
 
@@ -69,29 +92,59 @@
             const form = new FormData();
             form.append('data', audioFile);
 
-            // Send to your n8n webhook and await the MP3 response
-            const response = await fetch('https://wonderli.app.n8n.cloud/webhook-test/voice-agent', {
-              method: 'POST',
-              body: form
-            });
+            let response;
+            try {
+              response = await fetch('https://wonderli.app.n8n.cloud/webhook-test/voice-agent', {
+                method: 'POST',
+                body: form
+              });
+            } catch (err) {
+              console.error('Fetch error:', err);
+              alert('Network error sending audio.');
+              resetButton();
+              return;
+            }
+
+            if (!response.ok) {
+              console.error('Server returned status', response.status);
+              alert('Server error: ' + response.status);
+              resetButton();
+              return;
+            }
 
             // Read the response as a Blob (MP3)
-            const ttsBlob = await response.blob();
+            let ttsBlob;
+            try {
+              ttsBlob = await response.blob();
+            } catch (err) {
+              console.error('Error reading blob:', err);
+              alert('Error receiving audio.');
+              resetButton();
+              return;
+            }
+
+            console.log('Received TTS blob size:', ttsBlob.size);
 
             // Create a URL for that blob and play it immediately
             const audioURL = URL.createObjectURL(ttsBlob);
             player.src = audioURL;
             player.style.display = 'block';
-            player.play().catch(err => console.error('Playback error:', err));
+            player.play().catch(err => {
+              console.error('Playback error:', err);
+              alert('Playback error.');
+            });
 
-            // Reset for next recording
-            audioChunks = [];
-            isRecording = false;
-            micButton.textContent = 'Toggle';
-            micButton.classList.remove('recording');
+            // Finally reset state
+            resetButton();
           };
         }
       };
+
+      function resetButton() {
+        isRecording = false;
+        micButton.textContent = 'Toggle';
+        micButton.classList.remove('recording');
+      }
     </script>
   </body>
 </html>
