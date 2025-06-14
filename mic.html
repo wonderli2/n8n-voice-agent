@@ -5,52 +5,55 @@
     <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
     <title>n8n Voice Agent</title>
     <style>
-      /* Kill any scrolling and set full height */
+      /* No scrolling, full-screen centering */
       html, body {
-        margin: 0;
-        padding: 0;
-        width: 100%;
-        height: 100%;
+        margin: 0; padding: 0;
+        width: 100%; height: 100%;
         overflow: hidden;
       }
-      /* Center the button */
       body {
         display: flex;
         justify-content: center;
         align-items: center;
         background: #fafafa;
       }
+
+      /* Your circle button */
       #mic {
-        /* circle sizing from your preferred version */
-        width: 60vw;
-        max-width: 350px;
-        height: 60vw;
-        max-height: 350px;
+        width: 60vw; max-width: 350px;
+        height: 60vw; max-height: 350px;
         font-size: 4rem;
-        border: none;
-        border-radius: 50%;
-        background: #0069ff;
-        color: white;
+        border: none; border-radius: 50%;
+        background: #0069ff; color: white;
         cursor: pointer;
         transition: background 0.2s;
         display: flex;
         justify-content: center;
         align-items: center;
-        /* removed margin-bottom so it’s dead-center */
       }
-      /* extra bump on very small phones */
       @media only screen and (max-width: 400px) {
         #mic {
-          width: 80vw;
-          height: 80vw;
+          width: 80vw; height: 80vw;
           font-size: 5rem;
         }
       }
       #mic.recording { background: #cc0000; }
       #mic.working   { background: #f0c000; color: #333; }
 
-      /* hide the audio element completely */
-      audio { display: none; }
+      /* Hide on desktop, show on mobile */
+      audio {
+        display: none;
+      }
+      @media only screen and (max-width: 768px) {
+        audio {
+          display: block;
+          position: fixed;
+          bottom: 0;
+          left: 0;
+          width: 100%;
+          background: #fff;
+        }
+      }
     </style>
   </head>
   <body>
@@ -118,6 +121,7 @@
 
             const url = URL.createObjectURL(tts);
             player.src = url;
+            player.style.display = 'block';
             player.play().catch(()=>{});
 
             resetButton();
