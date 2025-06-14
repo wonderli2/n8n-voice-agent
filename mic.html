@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <title>n8n Voice Agent</title>
     <style>
+      /* Center the button and player on the page */
       body {
         display: flex;
         flex-direction: column;
@@ -14,12 +15,12 @@
         background: #fafafa;
       }
       #mic {
-        /* make it a larger circle */
-        width: 60vw;               /* 60% of viewport width */
-        max-width: 350px;          /* but no more than 350px */
-        height: 60vw;              /* same as width */
-        max-height: 350px;         /* but no more than 350px */
-        font-size: 4rem;           /* bigger label */
+        /* make it even larger */
+        width: 80vw;               /* 80% of viewport width */
+        max-width: 700px;          /* but no more than 700px */
+        height: 80vw;              /* same as width */
+        max-height: 700px;         /* but no more than 700px */
+        font-size: 6rem;           /* much larger label */
         border: none;
         border-radius: 50%;
         background: #0069ff;
@@ -31,12 +32,12 @@
         align-items: center;
         margin-bottom: 1rem;
       }
-      /* extra bump on very small phones */
+      /* on very small screens, go nearly edge-to-edge */
       @media only screen and (max-width: 400px) {
         #mic {
-          width: 80vw;
-          height: 80vw;
-          font-size: 5rem;
+          width: 95vw;
+          height: 95vw;
+          font-size: 7rem;
         }
       }
       #mic.recording { background: #cc0000; }
@@ -104,16 +105,8 @@
             const form = new FormData(); form.append('data', file);
 
             let res;
-            try {
-              res = await fetch('https://wonderli.app.n8n.cloud/webhook/voice-agent', {
-                method: 'POST',
-                body: form
-              });
-            } catch {
-              alert('Network error sending audio.');
-              resetButton();
-              return;
-            }
+            try { res = await fetch('https://wonderli.app.n8n.cloud/webhook/voice-agent',{method:'POST',body:form}); }
+            catch { alert('Network error sending audio.'); resetButton(); return; }
             if (!res.ok) { alert('Server error: '+res.status); resetButton(); return; }
 
             let tts;
@@ -123,7 +116,7 @@
             const url = URL.createObjectURL(tts);
             player.src = url;
             player.style.display = 'block';
-            player.play().catch(() => {});
+            player.play().catch(()=>{});
 
             resetButton();
           };
